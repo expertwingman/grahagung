@@ -50,9 +50,12 @@
             <span>📈</span><span class="text-sm">Analytics</span>
         </a>
 
+        {{-- Import massal hanya untuk direktur & manajer --}}
+        @if(auth()->user()->isDirektur() || auth()->user()->isManajer())
         <a href="/import" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 {{ request()->is('import*') ? 'bg-gray-700' : '' }}">
             <span>📥</span><span class="text-sm">Import Excel</span>
         </a>
+        @endif
         @if(auth()->user()->isDirektur())
         <a href="/users" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 {{ request()->is('users*') ? 'bg-gray-700' : '' }}">
             <span>👤</span><span class="text-sm">Manajemen User</span>

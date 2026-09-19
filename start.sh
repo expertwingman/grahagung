@@ -34,7 +34,10 @@ php artisan view:cache
 # route:cache sengaja TIDAK dipakai: routes/web.php masih memakai closure,
 # dan Laravel tidak bisa men-serialize closure.
 
-php artisan migrate --force
+# Migrate JANGAN mematikan container kalau gagal — kalau mati,
+# container restart terus dan membanjiri database dengan percobaan login.
+php artisan migrate --force || echo "PERINGATAN: migrate gagal, container tetap jalan"
+
 
 php-fpm -D
 exec nginx -g "daemon off;"

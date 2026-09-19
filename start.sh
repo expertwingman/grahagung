@@ -23,6 +23,12 @@ server {
 }
 NGINX
 
+# Pastikan folder kerja Laravel ada (container punya filesystem bersih)
+mkdir -p storage/framework/{views,sessions,cache/data} \
+         storage/app/public storage/logs bootstrap/cache
+chown -R www-data:www-data storage bootstrap/cache
+chmod -R 775 storage bootstrap/cache
+
 php artisan config:cache
 php artisan view:cache
 # route:cache sengaja TIDAK dipakai: routes/web.php masih memakai closure,

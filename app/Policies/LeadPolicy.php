@@ -67,6 +67,30 @@ class LeadPolicy
     }
 
     /**
+     * Siapa yang boleh MENUGASKAN lead ke sales?
+     * - Staff  : tidak boleh
+     * - Manajer: hanya lead yang masuk scope timnya
+     * - Direktur: semua (lewat before())
+     */
+    public function assign(User $user, Lead $lead): bool
+    {
+        if ($user->isStaff()) {
+            return false;
+        }
+
+        if ($user->isManajer()) {
+            $staffIds   = $user->staffMembers()->pluck('id')->toArray();
+            $staffIds[] = $user->id;
+
+            // Lead belum bertuan juga boleh diambil manajer
+            return $lead->assigned_to === null
+                || in_array($lead->assigned_to, $staffIds);
+        }
+
+        return false;
+    }
+
+    /**
      * Siapa yang boleh hapus lead?
      * - Staff: tidak boleh hapus sama sekali
      * - Manajer: hanya lead yang masuk scope timnya

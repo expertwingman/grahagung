@@ -167,7 +167,7 @@
                                     <span class="text-sm">{{ $icons[$activity->type] ?? '📌' }}</span>
                                     <div>
                                         <p class="text-sm font-medium text-gray-800">{{ $activity->title }}</p>
-                                        <p class="text-xs text-gray-400">{{ $activity->created_at->diffForHumans() }}</p>
+                                        <p class="text-xs text-gray-400">{{ $activity->created_at?->diffForHumans() ?? "-" }}</p>
                                     </div>
                                     <span class="ml-auto text-xs {{ $activity->status === 'done' ? 'text-green-500' : 'text-yellow-500' }}">
                                         {{ ucfirst($activity->status) }}

@@ -43,6 +43,72 @@
         </div>
     </div>
 
+    {{-- Panel: Lead Baru dari Website --}}
+    @if($webLeadsCount > 0)
+    <div class="bg-white rounded-lg shadow-sm mb-6 border-l-4 border-emerald-500">
+        <div class="flex items-center justify-between p-4 border-b">
+            <div class="flex items-center gap-2">
+                <span class="text-lg">🌐</span>
+                <h2 class="font-semibold text-gray-700">Lead Baru dari Website</h2>
+                <span class="bg-emerald-100 text-emerald-700 text-xs font-bold px-2 py-0.5 rounded-full">{{ $webLeadsCount }}</span>
+            </div>
+            <span class="text-xs text-gray-400">Belum ada sales penanggung jawab</span>
+        </div>
+
+        <div class="divide-y">
+            @foreach($webLeads as $lead)
+                <div class="px-4 py-3 hover:bg-emerald-50">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="min-w-0 flex-1">
+                            <div class="font-medium text-gray-800">{{ $lead->name }}</div>
+
+                            <div class="text-xs text-gray-500 mt-0.5">
+                                {{ $lead->wa_phone ?? $lead->phone ?? '-' }}
+                                @if($lead->email) &middot; {{ $lead->email }} @endif
+                                &middot; {{ $lead->created_at?->diffForHumans() }}
+                            </div>
+
+                            @if($lead->notes)
+                                <div class="text-xs text-gray-600 mt-1 whitespace-pre-line">{{ \Illuminate\Support\Str::limit($lead->notes, 160) }}</div>
+                            @endif
+                        </div>
+
+                        <div class="flex items-center gap-2 shrink-0">
+                            @if($lead->wa_phone)
+                                <a href="https://wa.me/{{ $lead->wa_phone }}" target="_blank" rel="noopener"
+                                   class="px-3 py-1.5 rounded bg-green-600 text-white text-xs font-medium hover:bg-green-700">
+                                    WhatsApp
+                                </a>
+                            @endif
+
+                            <form method="POST" action="{{ route('leads.assign', $lead) }}" class="flex items-center gap-1">
+                                @csrf
+                                <select name="assigned_to" required
+                                        class="text-xs border-gray-300 rounded py-1.5 pl-2 pr-7">
+                                    <option value="">Tugaskan ke…</option>
+                                    @foreach($salesOptions as $sales)
+                                        <option value="{{ $sales->id }}">{{ $sales->name }}</option>
+                                    @endforeach
+                                </select>
+
+                                <button type="submit"
+                                        class="px-3 py-1.5 rounded bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700">
+                                    Tugaskan
+                                </button>
+                            </form>
+
+                            <a href="{{ route('leads.show', $lead) }}"
+                               class="px-3 py-1.5 rounded border border-gray-300 text-xs text-gray-600 hover:bg-gray-50">
+                                Lihat
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- Panel: Lead Perlu Follow Up --}}
     @if($followUpCount > 0)
     <div class="bg-white rounded-lg shadow-sm mb-6 border-l-4 border-orange-400">
@@ -112,7 +178,7 @@
                         <span class="px-2 py-1 rounded-full text-xs font-medium {{ $lead->statusColor() }}">
                             {{ $lead->statusLabel() }}
                         </span>
-                        <p class="text-xs text-gray-400 mt-1">{{ $lead->created_at->diffForHumans() }}</p>
+                        <p class="text-xs text-gray-400 mt-1">{{ $lead->created_at?->diffForHumans() ?? "-" }}</p>
                     </div>
                 </div>
                 @empty

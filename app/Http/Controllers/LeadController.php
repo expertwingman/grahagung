@@ -245,6 +245,41 @@ class LeadController extends Controller
     }
 
     /**
+     * Tugaskan lead ke seorang sales.
+     * Hanya direktur & manajer. Manajer hanya boleh menugaskan
+     * ke staff di bawahnya sendiri.
+     */
+    public function assign(Request $request, Lead $lead)
+    {
+        $this->authorize('assign', $lead);
+
+        $user = auth()->user();
+
+        // Daftar sales yang boleh dituju
+        if ($user->isDirektur()) {
+            $bolehIds = \App\Models\User::where('is_active', true)->pluck('id')->toArray();
+        } else {
+            $bolehIds   = $user->staffMembers()->where('is_active', true)->pluck('id')->toArray();
+            $bolehIds[] = $user->id;
+        }
+
+        $validated = $request->validate([
+            'assigned_to' => ['required', 'integer', \Illuminate\Validation\Rule::in($bolehIds)],
+        ], [
+            'assigned_to.in' => 'Anda tidak berwenang menugaskan lead ke user tersebut.',
+        ]);
+
+        $lead->update(['assigned_to' => $validated['assigned_to']]);
+
+        $sales = \App\Models\User::find($validated['assigned_to']);
+
+        return back()->with(
+            'success',
+            "Lead \"{$lead->name}\" ditugaskan ke {$sales->name}."
+        );
+    }
+
+    /**
      * Helper: normalisasi nomor telepon ke format internasional.
      * Contoh: (0812-3456, 62) → 6281234560
      */

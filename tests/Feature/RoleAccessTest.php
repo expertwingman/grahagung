@@ -118,4 +118,55 @@ class RoleAccessTest extends TestCase
 
         $this->assertGuest();
     }
+
+    public function test_staff_tidak_bisa_menugaskan_lead(): void
+    {
+        $manajer = $this->buatUser('manajer');
+        $staffA  = $this->buatUser('staff', $manajer->id);
+        $staffB  = $this->buatUser('staff', $manajer->id);
+        $lead    = $this->buatLead($staffA);
+
+        $this->actingAs($staffA)
+            ->post(route('leads.assign', $lead), ['assigned_to' => $staffB->id])
+            ->assertForbidden();
+    }
+
+    public function test_manajer_bisa_menugaskan_lead_tanpa_pemilik(): void
+    {
+        $manajer = $this->buatUser('manajer');
+        $staff   = $this->buatUser('staff', $manajer->id);
+
+        $lead = Lead::create([
+            'name'        => 'Lead Website',
+            'status'      => 'no_respon',
+            'source'      => 'website',
+            'assigned_to' => null,
+        ]);
+
+        $this->actingAs($manajer)
+            ->post(route('leads.assign', $lead), ['assigned_to' => $staff->id])
+            ->assertRedirect();
+
+        $this->assertSame($staff->id, $lead->fresh()->assigned_to);
+    }
+
+    public function test_manajer_tidak_bisa_menugaskan_ke_staff_tim_lain(): void
+    {
+        $manajerA = $this->buatUser('manajer');
+        $manajerB = $this->buatUser('manajer');
+        $staffB   = $this->buatUser('staff', $manajerB->id);
+
+        $lead = Lead::create([
+            'name'        => 'Lead Website',
+            'status'      => 'no_respon',
+            'source'      => 'website',
+            'assigned_to' => null,
+        ]);
+
+        $this->actingAs($manajerA)
+            ->post(route('leads.assign', $lead), ['assigned_to' => $staffB->id])
+            ->assertSessionHasErrors('assigned_to');
+
+        $this->assertNull($lead->fresh()->assigned_to);
+    }
 }

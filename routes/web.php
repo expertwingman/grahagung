@@ -80,7 +80,28 @@ Route::middleware(['auth'])->group(function () {
             ->take(8)->get();
         $followUpCount = (clone $leadsQuery)->needsFollowUp()->count();
 
+        // Lead dari website yang belum ditugaskan ke sales mana pun.
+        // Hanya relevan untuk direktur & manajer.
+        $webLeads      = collect();
+        $webLeadsCount = 0;
+        $salesOptions  = collect();
+
+        if ($user->isDirektur() || $user->isManajer()) {
+            $webQuery = \App\Models\Lead::where('source', 'website')
+                ->whereNull('assigned_to');
+
+            $webLeadsCount = (clone $webQuery)->count();
+            $webLeads      = (clone $webQuery)->latest()->take(8)->get();
+
+            $salesOptions = $user->isDirektur()
+                ? \App\Models\User::where('is_active', true)
+                    ->where('role', 'staff')->orderBy('name')->get()
+                : $user->staffMembers()->where('is_active', true)
+                    ->where('role', 'staff')->orderBy('name')->get();
+        }
+
         return view('dashboard', compact(
+            'webLeads', 'webLeadsCount', 'salesOptions',
             'totalLeads', 'newLeads', 'activePipelines', 'pipelineValue',
             'activeProjects', 'completedProjects', 'wonDeals', 'wonValue',
             'recentLeads', 'upcomingActivities', 'leadsPerMonth', 'leadsPerSource',
@@ -99,6 +120,8 @@ Route::middleware(['auth'])->group(function () {
         ->name('leads.force-delete');
     Route::post('leads/{lead}/followed-up', [LeadController::class, 'markFollowedUp'])
         ->name('leads.followed-up');
+    Route::post('leads/{lead}/assign', [LeadController::class, 'assign'])
+        ->name('leads.assign');
     Route::resource('leads', LeadController::class);
     Route::resource('projects', ProjectController::class);
 

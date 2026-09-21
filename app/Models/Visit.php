@@ -10,6 +10,8 @@ class Visit extends Model
 {
     protected $fillable = [
         'user_id',
+        'lead_id',
+        'client_uuid',
         'client_id',
         'client_name',
         'client_phone',
@@ -21,10 +23,22 @@ class Visit extends Model
         'longitude',
         'location_address',
         'visited_at',
+        'server_captured_at',
+        'project_slug',
+        'unit_type_slug',
+        'unit_block',
+        'interest_level',
+        'came_with',
+        'next_action',
+        'next_action_date',
+        'payload',
     ];
 
     protected $casts = [
-        'visited_at' => 'datetime',
+        'visited_at'         => 'datetime',
+        'server_captured_at' => 'datetime',
+        'next_action_date'   => 'date',
+        'payload'            => 'array',
         'latitude'   => 'float',
         'longitude'  => 'float',
     ];
@@ -32,6 +46,11 @@ class Visit extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function lead(): BelongsTo
+    {
+        return $this->belongsTo(Lead::class);
     }
 
     public function photos(): HasMany

@@ -41,11 +41,11 @@ return [
             'key'                     => env('SUPABASE_KEY'),
             'secret'                  => env('SUPABASE_SECRET'),
             'region'                  => 'ap-southeast-1',
-            'bucket'                  => env('SUPABASE_BUCKET', 'visit-photos'),
+            'bucket'                  => env('SUPABASE_BUCKET', 'kunjungan'),
             'url'                     => env('SUPABASE_URL'),
             'endpoint'                => env('SUPABASE_STORAGE_URL'),
             'use_path_style_endpoint' => true,
-            'visibility'              => 'public',
+            'visibility'              => 'private',
             'throw'                   => false,
         ],
 

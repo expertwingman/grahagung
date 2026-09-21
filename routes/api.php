@@ -17,6 +17,10 @@ Route::middleware('auth:sanctum')->group(function () {
     // Info user yang login
     Route::get('/me', fn(Request $request) => response()->json($request->user()));
 
+    // Data pendukung form kunjungan
+    Route::get('/catalog',      [VisitController::class, 'catalog']);
+    Route::get('/leads/lookup', [VisitController::class, 'lookup']);
+
     // Kunjungan
     Route::get('/visits',                [VisitController::class, 'index']);
     Route::post('/visits',               [VisitController::class, 'store']);

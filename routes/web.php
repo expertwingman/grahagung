@@ -120,6 +120,12 @@ Route::middleware(['auth'])->group(function () {
         ->name('leads.force-delete');
     Route::post('leads/{lead}/followed-up', [LeadController::class, 'markFollowedUp'])
         ->name('leads.followed-up');
+    // Reaktivasi cold lead
+    Route::get('reaktivasi', [\App\Http\Controllers\ReaktivasiController::class, 'index'])
+        ->name('reaktivasi.index');
+    Route::post('reaktivasi/{lead}/contacted', [\App\Http\Controllers\ReaktivasiController::class, 'contacted'])
+        ->name('reaktivasi.contacted');
+
     Route::post('leads/{lead}/assign', [LeadController::class, 'assign'])
         ->name('leads.assign');
     Route::resource('leads', LeadController::class);

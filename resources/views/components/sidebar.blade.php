@@ -73,6 +73,12 @@
             <span>🗂️</span><span class="text-sm">Arsip Leads</span>
         </a>
         @endif
+        {{-- ===== MESIN LEAD ===== --}}
+        <div class="mt-4 mb-1 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-400">Mesin Lead</div>
+        <a href="{{ route('reaktivasi.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 {{ request()->is('reaktivasi*') ? 'bg-gray-700' : '' }}">
+            <span>♻️</span><span class="text-sm">Reaktivasi Cold Lead</span>
+        </a>
+
         <a href="/products-list" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 {{ request()->is('products-list*') ? 'bg-gray-700' : '' }}">
             <span>🏷️</span><span class="text-sm">Produk</span>
         </a>

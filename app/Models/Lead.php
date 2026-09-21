@@ -120,6 +120,30 @@ class Lead extends Model
             });
     }
 
+    /**
+     * Scope: lead DINGIN — masih aktif tapi diam ≥ $days hari.
+     */
+    public function scopeCold($query, int $days = 30)
+    {
+        $batas = now()->subDays($days);
+
+        return $query
+            ->whereNotIn('status', ['closing', 'batal'])
+            ->where(function ($q) use ($batas) {
+                $q->where(function ($q2) use ($batas) {
+                        $q2->whereNull('follow_up_date')->where('created_at', '<=', $batas);
+                    })
+                  ->orWhere('follow_up_date', '<=', $batas->toDateString());
+            });
+    }
+
+    /** Berapa hari lead ini diam. */
+    public function daysSilent(): int
+    {
+        $sejak = $this->follow_up_date ?? $this->created_at;
+        return $sejak ? (int) $sejak->diffInDays(now()) : 0;
+    }
+
     public function activities(): \Illuminate\Database\Eloquent\Relations\MorphMany
     {
         return $this->morphMany(Activity::class, 'subject')

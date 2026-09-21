@@ -169,4 +169,64 @@ class RoleAccessTest extends TestCase
 
         $this->assertNull($lead->fresh()->assigned_to);
     }
+
+    public function test_reaktivasi_staff_hanya_lihat_lead_sendiri(): void
+    {
+        $manajer = $this->buatUser('manajer');
+        $a = $this->buatUser('staff', $manajer->id);
+        $b = $this->buatUser('staff', $manajer->id);
+
+        $leadA = $this->buatLead($a); $leadA->forceFill(['name' => 'Lead Milik A Xyz', 'created_at' => now()->subDays(45)])->save();
+        $leadB = $this->buatLead($b); $leadB->forceFill(['name' => 'Lead Milik B Qrs', 'created_at' => now()->subDays(45)])->save();
+
+        $this->actingAs($a)->get(route('reaktivasi.index'))
+            ->assertOk()
+            ->assertSee('Lead Milik A Xyz')
+            ->assertDontSee('Lead Milik B Qrs');
+    }
+
+    public function test_reaktivasi_lead_baru_tidak_dianggap_dingin(): void
+    {
+        $manajer = $this->buatUser('manajer');
+        $a = $this->buatUser('staff', $manajer->id);
+        $lead = $this->buatLead($a);
+        $lead->forceFill(['name' => 'Lead Segar Hari Ini'])->save();
+
+        $this->actingAs($a)->get(route('reaktivasi.index'))
+            ->assertOk()
+            ->assertDontSee('Lead Segar Hari Ini');
+    }
+
+    public function test_reaktivasi_catat_kontak_membuat_aktivitas(): void
+    {
+        $manajer = $this->buatUser('manajer');
+        $a = $this->buatUser('staff', $manajer->id);
+        $lead = $this->buatLead($a);
+        $lead->forceFill(['created_at' => now()->subDays(45), 'status' => 'no_respon'])->save();
+
+        $this->actingAs($a)
+            ->post(route('reaktivasi.contacted', $lead), ['hasil' => 'tertarik'])
+            ->assertRedirect();
+
+        $lead->refresh();
+        $this->assertSame('respon', $lead->status);
+        $this->assertNotNull($lead->follow_up_date);
+        $this->assertDatabaseHas('activities', [
+            'subject_id' => $lead->id,
+            'type' => 'whatsapp',
+            'title' => 'Reaktivasi: Tertarik — lanjut',
+        ]);
+    }
+
+    public function test_reaktivasi_staff_tidak_bisa_catat_lead_orang_lain(): void
+    {
+        $manajer = $this->buatUser('manajer');
+        $a = $this->buatUser('staff', $manajer->id);
+        $b = $this->buatUser('staff', $manajer->id);
+        $leadB = $this->buatLead($b);
+
+        $this->actingAs($a)
+            ->post(route('reaktivasi.contacted', $leadB), ['hasil' => 'terkirim'])
+            ->assertForbidden();
+    }
 }

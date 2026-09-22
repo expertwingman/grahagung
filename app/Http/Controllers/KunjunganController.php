@@ -31,10 +31,9 @@ class KunjunganController extends Controller
 
         $visits = $query->paginate(20)->withQueryString();
 
-        foreach ($visits as $v) {
+                foreach ($visits as $v) {
             $v->foto_urls = $v->photos->map(function ($p) {
-                try { return Storage::disk('supabase')->temporaryUrl($p->photo_path, now()->addHour()); }
-                catch (\Throwable) { return null; }
+                return "https://ekcsbcqvgmxweetoubze.supabase.co/storage/v1/object/public/kunjungan/" . $p->photo_path;
             })->filter()->values();
         }
 

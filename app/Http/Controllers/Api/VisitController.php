@@ -9,24 +9,12 @@ use App\Models\Visit;
 use App\Models\VisitPhoto;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
-/**
- * API aplikasi sales lapangan.
- *
- * Satu kunjungan = satu request POST /api/visits (multipart, foto ikut).
- * Server yang menentukan waktu; HP hanya mengirim koordinat.
- */
 class VisitController extends Controller
 {
     private const STATUS_SEBELUM_SURVEY = ['no_respon', 'respon', 'kirim_pl'];
 
-    /* ------------------------------------------------------------------ */
-    /*  Data pendukung form                                                 */
-    /* ------------------------------------------------------------------ */
-
-    /** Proyek, tipe, dan unit tersedia — dari schema web (sumber yang sama dengan website). */
     public function catalog()
     {
         $projects = DB::table('web.projects')->select('id', 'slug', 'name', 'city')->orderBy('name')->get();
@@ -65,7 +53,6 @@ class VisitController extends Controller
         ]);
     }
 
-    /** Cari lead berdasarkan nomor HP — untuk mengisi form otomatis. */
     public function lookup(Request $request)
     {
         $request->validate(['phone' => 'required|string|max:20']);
@@ -108,10 +95,6 @@ class VisitController extends Controller
         ]);
     }
 
-    /* ------------------------------------------------------------------ */
-    /*  Kunjungan                                                           */
-    /* ------------------------------------------------------------------ */
-
     public function index(Request $request)
     {
         $visits = Visit::with(['photos', 'lead:id,name,status'])
@@ -124,26 +107,19 @@ class VisitController extends Controller
         return response()->json($visits);
     }
 
-    /**
-     * Simpan kunjungan. Multipart: field + photos[] (maks 3, 6 MB/foto).
-     * Idempoten lewat client_uuid — aman dikirim ulang saat sinkron offline.
-     */
     public function store(Request $request)
     {
         $data = $request->validate([
             'client_uuid'      => 'nullable|string|max:40',
-            // siapa
             'phone'            => 'required|string|max:20',
             'name'             => 'required|string|max:120',
             'city'             => 'nullable|string|max:80',
             'source'           => 'nullable|string|max:30',
             'came_with'        => 'nullable|in:sendiri,pasangan,keluarga,teman',
-            // profil
             'occupation'       => 'nullable|string|max:60',
             'budget_range'     => 'nullable|string|max:20',
             'salary_range'     => 'nullable|string|max:20',
             'payment_method'   => 'nullable|in:kpr,cash',
-            // kunjungan
             'project_slug'     => 'required|string|max:60',
             'unit_type_slug'   => 'nullable|string|max:60',
             'unit_block'       => 'nullable|string|max:30',
@@ -158,7 +134,6 @@ class VisitController extends Controller
             'photos.*'         => 'image|max:6144',
         ]);
 
-        // Idempoten: kalau uuid sudah pernah masuk, kembalikan yang ada
         if (! empty($data['client_uuid'])) {
             $ada = Visit::with(['photos', 'lead'])->where('client_uuid', $data['client_uuid'])->first();
             if ($ada) {
@@ -176,7 +151,6 @@ class VisitController extends Controller
 
         $hasil = DB::transaction(function () use ($data, $user, $wa, $projectName, $request) {
 
-            /* ---- 1. Lead: cari, buat, atau perbarui ---- */
             $lead = Lead::where(fn ($q) => $q->where('wa_phone', $wa)->orWhere('phone', $wa))
                 ->orderByDesc('id')->first();
             $conflict = false;
@@ -194,25 +168,21 @@ class VisitController extends Controller
                     'notes'       => "Dibuat dari kunjungan lapangan ke {$projectName}.",
                 ]);
             } elseif ($lead->assigned_to && $lead->assigned_to !== $user->id) {
-                // Lead milik sales lain — tetap dicatat, tapi ditandai bentrok
                 $conflict = true;
             } elseif (! $lead->assigned_to) {
                 $lead->assigned_to = $user->id;
             }
 
-            // Profil: isi hanya yang dikirim, jangan menimpa dengan kosong
             foreach (['city', 'occupation', 'budget_range', 'salary_range', 'payment_method'] as $k) {
                 if (! empty($data[$k])) $lead->{$k} = $data[$k];
             }
             if (! empty($data['source']) && empty($lead->source)) $lead->source = $data['source'];
 
-            // Produk (proyek) dari tabel products CRM kalau ada yang namanya cocok
             if (! $lead->product_id) {
                 $pid = DB::table('products')->where('name', $projectName)->value('id');
                 if ($pid) $lead->product_id = $pid;
             }
 
-            // Status naik ke survey; catat waktu kontak
             if (in_array($lead->status, self::STATUS_SEBELUM_SURVEY)) {
                 $lead->status = 'survey';
             }
@@ -228,7 +198,6 @@ class VisitController extends Controller
             }
             $lead->save();
 
-            /* ---- 2. Kunjungan (snapshot) ---- */
             $visit = Visit::create([
                 'user_id'            => $user->id,
                 'lead_id'            => $lead->id,
@@ -252,15 +221,40 @@ class VisitController extends Controller
                 'payload'            => collect($data)->except(['photos'])->all(),
             ]);
 
-            /* ---- 3. Foto ---- */
+            /* ---- 3. Foto via Supabase REST API ---- */
+            $serviceKey = config('services.supabase.service_role_key', env('SUPABASE_SERVICE_ROLE_KEY', ''));
+            $baseUrl    = 'https://ekcsbcqvgmxweetoubze.supabase.co/storage/v1';
+
             foreach ($request->file('photos', []) as $file) {
-                $path = "kunjungan/{$visit->id}/" . Str::uuid() . '.' . strtolower($file->extension());
-                Storage::disk('supabase')->put($path, file_get_contents($file));
-                VisitPhoto::create([
-                    'visit_id'   => $visit->id,
-                    'photo_path' => $path,
-                    'photo_url'  => $path,   // URL bertanda tangan dibuat saat dibaca
+                $filename = "{$visit->id}/" . Str::uuid() . '.' . strtolower($file->extension());
+                $contents = file_get_contents($file);
+                $mime     = $file->getMimeType() ?? 'image/jpeg';
+
+                $ch = curl_init("{$baseUrl}/object/kunjungan/{$filename}");
+                curl_setopt_array($ch, [
+                    CURLOPT_CUSTOMREQUEST  => 'POST',
+                    CURLOPT_POSTFIELDS     => $contents,
+                    CURLOPT_HTTPHEADER     => [
+                        "Authorization: Bearer {$serviceKey}",
+                        "Content-Type: {$mime}",
+                        "x-upsert: true",
+                    ],
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT        => 30,
                 ]);
+                $res  = curl_exec($ch);
+                $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                curl_close($ch);
+
+                if ($code >= 200 && $code < 300) {
+                    VisitPhoto::create([
+                        'visit_id'   => $visit->id,
+                        'photo_path' => $filename,
+                        'photo_url'  => $filename,
+                    ]);
+                } else {
+                    \Log::error("Upload foto gagal: HTTP {$code} — {$res}");
+                }
             }
 
             /* ---- 4. Aktivitas ---- */
@@ -297,7 +291,6 @@ class VisitController extends Controller
         return response()->json($this->keluaran($visit->load(['photos', 'lead'])));
     }
 
-    /** Tambah foto ke kunjungan yang sudah ada (untuk sinkron foto terpisah). */
     public function uploadPhoto(Request $request, Visit $visit)
     {
         if ($visit->user_id !== $request->user()->id) {
@@ -305,18 +298,40 @@ class VisitController extends Controller
         }
         $request->validate(['photo' => 'required|image|max:6144', 'caption' => 'nullable|string|max:255']);
 
-        $file = $request->file('photo');
-        $path = "kunjungan/{$visit->id}/" . Str::uuid() . '.' . strtolower($file->extension());
-        Storage::disk('supabase')->put($path, file_get_contents($file));
+        $file      = $request->file('photo');
+        $filename  = "{$visit->id}/" . Str::uuid() . '.' . strtolower($file->extension());
+        $contents  = file_get_contents($file);
+        $mime      = $file->getMimeType() ?? 'image/jpeg';
+        $serviceKey = config('services.supabase.service_role_key', env('SUPABASE_SERVICE_ROLE_KEY', ''));
+        $baseUrl    = 'https://ekcsbcqvgmxweetoubze.supabase.co/storage/v1';
+
+        $ch = curl_init("{$baseUrl}/object/kunjungan/{$filename}");
+        curl_setopt_array($ch, [
+            CURLOPT_CUSTOMREQUEST  => 'POST',
+            CURLOPT_POSTFIELDS     => $contents,
+            CURLOPT_HTTPHEADER     => [
+                "Authorization: Bearer {$serviceKey}",
+                "Content-Type: {$mime}",
+                "x-upsert: true",
+            ],
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 30,
+        ]);
+        $res  = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($code < 200 || $code >= 300) {
+            return response()->json(['message' => "Upload gagal: HTTP {$code}"], 500);
+        }
 
         $photo = VisitPhoto::create([
-            'visit_id' => $visit->id, 'photo_path' => $path, 'photo_url' => $path, 'caption' => $request->caption,
+            'visit_id' => $visit->id, 'photo_path' => $filename, 'photo_url' => $filename, 'caption' => $request->caption,
         ]);
 
         return response()->json(['message' => 'Foto tersimpan.', 'photo' => $this->foto($photo)], 201);
     }
 
-    /** Sinkron batch tanpa foto — dipertahankan untuk kompatibilitas. Foto menyusul via uploadPhoto. */
     public function sync(Request $request)
     {
         $request->validate(['visits' => 'required|array|max:100']);
@@ -329,10 +344,6 @@ class VisitController extends Controller
         }
         return response()->json(['results' => $hasil]);
     }
-
-    /* ------------------------------------------------------------------ */
-    /*  Helper                                                              */
-    /* ------------------------------------------------------------------ */
 
     private function keluaran(Visit $v): array
     {
@@ -360,15 +371,10 @@ class VisitController extends Controller
 
     private function foto(VisitPhoto $p): array
     {
-        try {
-            $url = Storage::disk('supabase')->temporaryUrl($p->photo_path, now()->addHours(2));
-        } catch (\Throwable) {
-            $url = $p->photo_url;
-        }
+        $url = "https://ekcsbcqvgmxweetoubze.supabase.co/storage/v1/object/public/kunjungan/" . $p->photo_path;
         return ['id' => $p->id, 'url' => $url, 'caption' => $p->caption];
     }
 
-    /** 08xx / +62xx / 8xx → 62xx */
     public static function normalisasi(string $input): ?string
     {
         $angka = preg_replace('/\D/', '', $input);

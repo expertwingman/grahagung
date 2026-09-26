@@ -29,6 +29,10 @@
             <span>📍</span><span class="text-sm">Kunjungan Lapangan</span>
         </a>
 
+        <a href="{{ route('konten.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 {{ request()->is('konten*') ? 'bg-gray-700' : '' }}">
+            <span>📝</span><span class="text-sm">Papan Konten</span>
+        </a>
+
         <a href="{{ route('reaktivasi.index') }}" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-700 {{ request()->is('reaktivasi*') ? 'bg-gray-700' : '' }}">
             <span>♻️</span><span class="text-sm">Reaktivasi Cold Lead</span>
         </a>

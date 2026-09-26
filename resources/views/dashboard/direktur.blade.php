@@ -45,6 +45,36 @@
         @include('dashboard._cold_per_sales')
     </div>
 
+    {{-- Konten terbaru --}}
+    @php
+        $kontenTerbaru = \App\Models\ContentItem::latest()->take(5)->get();
+        $kontenDraft = \App\Models\ContentItem::whereIn('status', ['idea', 'planned', 'production', 'review'])->count();
+    @endphp
+    @if($kontenTerbaru->count() > 0 || $kontenDraft > 0)
+    <div class="bg-white rounded-xl shadow-sm">
+        <div class="flex items-center justify-between p-4 border-b">
+            <div class="flex items-center gap-2">
+                <h2 class="font-bold text-gray-700">Papan Konten</h2>
+                @if($kontenDraft > 0)
+                <span class="bg-amber-100 text-amber-700 text-xs font-bold px-2 py-0.5 rounded-full">{{ $kontenDraft }} draf</span>
+                @endif
+            </div>
+            <a href="{{ route('konten.index') }}" class="text-xs font-semibold text-blue-600 hover:underline">Buka →</a>
+        </div>
+        <div class="divide-y">
+            @foreach($kontenTerbaru as $c)
+            <div class="flex items-center justify-between px-4 py-3">
+                <div class="min-w-0 flex-1">
+                    <p class="text-sm font-medium text-gray-800 truncate">{{ $c->title }}</p>
+                    <p class="text-xs text-gray-400">{{ $c->platformLabel() }} · {{ $c->typeLabel() }}</p>
+                </div>
+                <span class="px-2 py-0.5 rounded-full text-xs font-medium {{ $c->statusColor() }} shrink-0">{{ $c->statusLabel() }}</span>
+            </div>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- Kunjungan terbaru --}}
     @if($kunjunganTerbaru->count() > 0)
     <div class="bg-white rounded-xl shadow-sm">

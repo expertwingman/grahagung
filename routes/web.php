@@ -31,6 +31,15 @@ Route::middleware(['auth'])->group(function () {
         ->name('leads.force-delete');
     Route::post('leads/{lead}/followed-up', [LeadController::class, 'markFollowedUp'])
         ->name('leads.followed-up');
+    // Papan konten
+    Route::get('konten', [\App\Http\Controllers\ContentController::class, 'index'])->name('konten.index');
+    Route::get('konten/export', [\App\Http\Controllers\ContentController::class, 'export'])->name('konten.export');
+    Route::get('konten/buat', [\App\Http\Controllers\ContentController::class, 'create'])->name('konten.create');
+    Route::post('konten', [\App\Http\Controllers\ContentController::class, 'store'])->name('konten.store');
+    Route::get('konten/{konten}/edit', [\App\Http\Controllers\ContentController::class, 'edit'])->name('konten.edit');
+    Route::put('konten/{konten}', [\App\Http\Controllers\ContentController::class, 'update'])->name('konten.update');
+    Route::delete('konten/{konten}', [\App\Http\Controllers\ContentController::class, 'destroy'])->name('konten.destroy');
+
     // Kunjungan lapangan (dari aplikasi sales)
     Route::get('kunjungan', [\App\Http\Controllers\KunjunganController::class, 'index'])
         ->name('kunjungan.index');
